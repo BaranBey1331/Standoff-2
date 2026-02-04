@@ -14,4 +14,3 @@ dependencyResolutionManagement {
 }
 rootProject.name = "Standoff-2"
 include ':app'
-
