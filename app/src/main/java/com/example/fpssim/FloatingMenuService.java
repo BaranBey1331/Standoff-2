@@ -7,7 +7,6 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.PixelFormat;
-import android.graphics.PorterDuff;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Handler;
@@ -19,24 +18,25 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.CheckBox;
-import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.FrameLayout;
 
 public class FloatingMenuService extends Service {
 
-    // Native Bağlantılar
     static { System.loadLibrary("fpssim"); }
-    public native void initNative(int width, int height);
-    public native float[] getEnemyPositions();
+    public native void initNative(int w, int h);
+    public native float[] getCalculatedData(); // C++'dan gelen gerçekçi veriler
 
     private WindowManager wm;
-    private FrameLayout overlayContainer; // Hem Menü Hem ESP çizim alanı
+    private FrameLayout rootContainer; // İkon ve Menüyü tutan ana kapsayıcı
     private LinearLayout menuLayout;
+    private TextView iconView; // Küçük ikon
     private ESPView espView;
-    private boolean isMenuVisible = true;
-    private boolean isEspEnabled = false;
+    private WindowManager.LayoutParams params;
+
+    private boolean isMenuOpen = true;
 
     @Override
     public IBinder onBind(Intent intent) { return null; }
@@ -45,88 +45,87 @@ public class FloatingMenuService extends Service {
     public void onCreate() {
         super.onCreate();
         wm = (WindowManager) getSystemService(WINDOW_SERVICE);
-
-        // Ekran Boyutlarını Al ve Native'e Gönder
         DisplayMetrics metrics = getResources().getDisplayMetrics();
         initNative(metrics.widthPixels, metrics.heightPixels);
 
-        // --- 1. ESP KATMANI (Tüm Ekranı Kaplar) ---
-        espView = new ESPView(this);
-        WindowManager.LayoutParams espParams = getParams(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT);
-        // Dokunmaları geçir (Pass-through) ki oyunu oynayabilelim
-        espParams.flags |= WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
-        wm.addView(espView, espParams);
+        // 1. ESP Katmanı (Tüm ekran)
+        initESP();
 
-        // --- 2. MENU KATMANI ---
-        createMenu();
-        
-        // ESP Döngüsünü Başlat
-        final Handler handler = new Handler(Looper.getMainLooper());
-        Runnable drawRunnable = new Runnable() {
-            @Override
-            public void run() {
-                if(isEspEnabled) espView.invalidate(); // Ekrani yenile (onDraw çağırır)
-                handler.postDelayed(this, 16); // 60 FPS (~16ms)
-            }
-        };
-        handler.post(drawRunnable);
+        // 2. Menü ve İkon Sistemi
+        initFloatingWidget();
     }
 
-    // --- PRO UI TASARIMI ---
-    private void createMenu() {
-        // Ana Container
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        // Gradient Arka Plan (Siyah -> Koyu Gri)
-        GradientDrawable gd = new GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[] {0xFF1A1A1A, 0xFF000000});
-        gd.setCornerRadius(30f);
-        gd.setStroke(2, 0xFF00FFFF); // Cyan Çerçeve
-        root.setBackground(gd);
-        root.setPadding(30, 30, 30, 30);
+    private void initFloatingWidget() {
+        // --- ANA KONTEYNER ---
+        rootContainer = new FrameLayout(this);
         
+        // --- A) KÜÇÜK İKON (LOGO) ---
+        iconView = new TextView(this);
+        iconView.setText("S2");
+        iconView.setTextSize(18f);
+        iconView.setTextColor(Color.WHITE);
+        iconView.setBackgroundColor(Color.RED);
+        iconView.setGravity(Gravity.CENTER);
+        iconView.setPadding(20, 20, 20, 20);
+        iconView.setVisibility(View.GONE); // Başlangıçta gizli
+        // Yuvarlak İkon Yapalım
+        GradientDrawable iconBg = new GradientDrawable();
+        iconBg.setShape(GradientDrawable.OVAL);
+        iconBg.setColor(Color.RED);
+        iconBg.setStroke(2, Color.WHITE);
+        iconView.setBackground(iconBg);
+
+        iconView.setOnClickListener(v -> toggleMenu(true)); // Tıklayınca menüyü aç
+        rootContainer.addView(iconView, new FrameLayout.LayoutParams(120, 120));
+
+        // --- B) MENÜ TASARIMI ---
+        menuLayout = new LinearLayout(this);
+        menuLayout.setOrientation(LinearLayout.VERTICAL);
+        // Gradient Tasarım
+        GradientDrawable gd = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[] {0xFF1F1F1F, 0xFF000000});
+        gd.setCornerRadius(20f);
+        gd.setStroke(2, 0xFF00FFFF);
+        menuLayout.setBackground(gd);
+        menuLayout.setPadding(30, 30, 30, 30);
+
         // Başlık
         TextView title = new TextView(this);
-        title.setText("⚡ PROJECT GODMODE");
+        title.setText("S2 EXTERNAL TOOL");
         title.setTextColor(Color.CYAN);
-        title.setTextSize(16f);
         title.setGravity(Gravity.CENTER);
-        title.setPadding(0,0,0,20);
-        root.addView(title);
+        menuLayout.addView(title);
 
-        // Checkbox Tasarımı
+        // Özellikler
         CheckBox chkEsp = new CheckBox(this);
-        chkEsp.setText("ESP Box [Visual]");
+        chkEsp.setText("ESP Box");
         chkEsp.setTextColor(Color.WHITE);
-        chkEsp.setOnCheckedChangeListener((btn, isChecked) -> isEspEnabled = isChecked);
-        root.addView(chkEsp);
+        menuLayout.addView(chkEsp);
 
-        CheckBox chkLine = new CheckBox(this);
-        chkLine.setText("Snaplines");
-        chkLine.setTextColor(Color.WHITE);
-        root.addView(chkLine);
+        CheckBox chkAim = new CheckBox(this);
+        chkAim.setText("Aimbot (Touch Sim)");
+        chkAim.setTextColor(Color.WHITE);
+        menuLayout.addView(chkAim);
 
-        // Kapat Butonu (Simge)
-        TextView closeBtn = new TextView(this);
-        closeBtn.setText("MENÜYÜ GİZLE / AÇ");
-        closeBtn.setTextColor(Color.RED);
-        closeBtn.setGravity(Gravity.CENTER);
-        closeBtn.setPadding(0, 20, 0, 0);
-        closeBtn.setOnClickListener(v -> {
-            // Gizle/Göster Mantığı eklenebilir
-            stopSelf(); // Şimdilik uygulamayı kapatır
-        });
-        root.addView(closeBtn);
+        // GİZLE BUTONU (Fix Burası)
+        TextView btnHide = new TextView(this);
+        btnHide.setText("▼ GİZLE");
+        btnHide.setTextColor(Color.YELLOW);
+        btnHide.setGravity(Gravity.CENTER);
+        btnHide.setPadding(0, 20, 0, 0);
+        btnHide.setOnClickListener(v -> toggleMenu(false)); // Tıklayınca menüyü kapat
+        menuLayout.addView(btnHide);
 
-        // Pencere Ayarları
-        WindowManager.LayoutParams params = getParams(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT);
+        rootContainer.addView(menuLayout);
+
+        // --- PENCERE AYARLARI ---
+        int type = (Build.VERSION.SDK_INT >= 26) ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : WindowManager.LayoutParams.TYPE_PHONE;
+        params = new WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT, type, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT);
         params.gravity = Gravity.TOP | Gravity.LEFT;
         params.x = 100;
         params.y = 200;
-        
-        // Sürükleme Mantığı
-        root.setOnTouchListener(new View.OnTouchListener() {
+
+        // Sürükleme Mantığı (Hem ikon hem menü sürüklenebilsin)
+        View.OnTouchListener dragListener = new View.OnTouchListener() {
             private int initialX, initialY;
             private float initialTouchX, initialTouchY;
             @Override
@@ -141,81 +140,62 @@ public class FloatingMenuService extends Service {
                     case MotionEvent.ACTION_MOVE:
                         params.x = initialX + (int) (event.getRawX() - initialTouchX);
                         params.y = initialY + (int) (event.getRawY() - initialTouchY);
-                        wm.updateViewLayout(root, params);
+                        wm.updateViewLayout(rootContainer, params);
                         return true;
                 }
-                return false;
+                return false; // Click eventini engellememek için
+            }
+        };
+        menuLayout.setOnTouchListener(dragListener);
+        iconView.setOnTouchListener(dragListener);
+
+        wm.addView(rootContainer, params);
+    }
+
+    // Menü <-> İkon Geçişi
+    private void toggleMenu(boolean show) {
+        isMenuOpen = show;
+        if (show) {
+            menuLayout.setVisibility(View.VISIBLE);
+            iconView.setVisibility(View.GONE);
+        } else {
+            menuLayout.setVisibility(View.GONE);
+            iconView.setVisibility(View.VISIBLE);
+        }
+    }
+
+    private void initESP() {
+        espView = new ESPView(this);
+        WindowManager.LayoutParams p = new WindowManager.LayoutParams(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT, (Build.VERSION.SDK_INT >= 26) ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : WindowManager.LayoutParams.TYPE_PHONE, WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT);
+        wm.addView(espView, p);
+        
+        final Handler h = new Handler(Looper.getMainLooper());
+        h.post(new Runnable() {
+            @Override
+            public void run() {
+                espView.invalidate();
+                h.postDelayed(this, 16);
             }
         });
-
-        wm.addView(root, params);
     }
 
-    private WindowManager.LayoutParams getParams(int w, int h) {
-        int type = (Build.VERSION.SDK_INT >= 26) ? 
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : 
-            WindowManager.LayoutParams.TYPE_PHONE;
-        
-        return new WindowManager.LayoutParams(w, h, type,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
-                PixelFormat.TRANSLUCENT);
-    }
-
-    // --- ESP ÇİZİM KATMANI (CANVAS) ---
     private class ESPView extends View {
-        Paint boxPaint, linePaint, textPaint;
-
-        public ESPView(Context context) {
-            super(context);
-            // Kutu Kalemi
-            boxPaint = new Paint();
-            boxPaint.setColor(Color.CYAN);
-            boxPaint.setStyle(Paint.Style.STROKE);
-            boxPaint.setStrokeWidth(3f);
-
-            // Çizgi Kalemi
-            linePaint = new Paint();
-            linePaint.setColor(Color.GREEN);
-            linePaint.setStrokeWidth(2f);
-            
-            // Text Kalemi
-            textPaint = new Paint();
-            textPaint.setColor(Color.WHITE);
-            textPaint.setTextSize(30f);
-        }
-
+        Paint paint = new Paint();
+        public ESPView(Context c) { super(c); paint.setColor(Color.GREEN); paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(3f); }
         @Override
         protected void onDraw(Canvas canvas) {
-            super.onDraw(canvas);
-            // Ekranı temizle (Gerek yok, transparent zaten)
-            if(!isEspEnabled) return;
-
-            // C++'dan verileri al
-            float[] enemies = getEnemyPositions();
-            if (enemies == null) return;
-
-            // Düşmanları Çiz (Her 2 float = 1 Düşman X,Y)
-            for(int i=0; i < enemies.length; i+=2) {
-                float x = enemies[i];
-                float y = enemies[i+1];
-
-                // 1. Kutu Çiz (Kafadan aşağı doğru bir kutu simülasyonu)
-                float boxHeight = 200; 
-                float boxWidth = 100;
-                canvas.drawRect(x - boxWidth/2, y, x + boxWidth/2, y + boxHeight, boxPaint);
-
-                // 2. Snapline (Ekran altından düşmana çizgi)
-                canvas.drawLine(getWidth()/2f, getHeight(), x, y + boxHeight, linePaint);
-
-                // 3. Mesafe Yazısı
-                canvas.drawText("Enemy [" + (int)x + "]", x, y - 10, textPaint);
+            float[] data = getCalculatedData(); // C++'dan [x, y, distance, isLocked] al
+            if(data == null) return;
+            for(int i=0; i<data.length; i+=4) {
+                float x = data[i];
+                float y = data[i+1];
+                boolean isLocked = data[i+3] > 0.5f;
+                
+                // Real Logic: Eğer kilitlendiyse renk Kırmızı olur
+                paint.setColor(isLocked ? Color.RED : Color.GREEN);
+                canvas.drawRect(x-50, y-100, x+50, y+100, paint);
+                canvas.drawLine(getWidth()/2f, getHeight()/2f, x, y, paint); // Crosshair'den çizgi
             }
         }
-    }
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        // Viewleri temizle
     }
 }
