@@ -2,23 +2,25 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
 
     <application
         android:allowBackup="true"
-        android:label="FPS Sim"
-        android:supportsRtl="true"
-        android:theme="@android:style/Theme.Material.Light.DarkActionBar">
-        
+        android:label="SO2 Tool"
+        android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+
         <activity
             android:name=".MainActivity"
-            android:exported="true">
-            <intent-filter>
+            android:exported="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"> <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service android:name=".FloatingMenuService"
+            android:enabled="true"
+            android:exported="false"/>
     </application>
 </manifest>
-
