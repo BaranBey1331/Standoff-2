@@ -19,15 +19,19 @@ jobs:
       with:
         java-version: '17'
         distribution: 'temurin'
-        # Cache özelliğini sildik çünkü hata veriyor.
 
-    # "Setup Gradle" adımını kaldırdık. 
-    # Ubuntu sunucularında zaten Gradle yüklü geliyor, onu kullanacağız.
+    # --- KRİTİK DÜZELTME ---
+    # 1. Gradle 8.6 sürümünü zorluyoruz (AGP uyumu için).
+    # 2. 'cache-disabled: true' yaparak Github sunucu hatasını atlatıyoruz.
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v3
+      with:
+        gradle-version: '8.6'
+        cache-disabled: true
 
     - name: Build with Gradle
-      # Gradle Wrapper (gradlew) olmadığı için direkt 'gradle' komutunu kullanıyoruz.
       run: gradle assembleDebug --stacktrace --no-daemon
-    
+
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
