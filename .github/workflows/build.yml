@@ -1,0 +1,79 @@
+name: Build Android APK
+on:
+  push:
+    branches:
+      - main  # veya master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # 1. Java Kurulumu (Android SDK için gerekli)
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # 2. Python Kurulumu (Kivy için stabil sürüm)
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      # 3. Gerekli Sistem Kütüphanelerinin Kurulumu
+      # Buildozer'ın ihtiyaç duyduğu Linux paketleri
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            libffi-dev \
+            libssl-dev \
+            python3-dev \
+            git \
+            unzip \
+            zip \
+            openjdk-17-jdk \
+            autoconf \
+            libtool \
+            pkg-config \
+            zlib1g-dev \
+            libncurses5-dev \
+            libncursesw5-dev \
+            libtinfo5 \
+            cmake \
+            libltdl-dev
+
+      # 4. Buildozer ve Cython Kurulumu
+      # Kivy uyumluluğu için Cython sürümü önemlidir
+      - name: Install Buildozer and Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install buildozer
+          pip install "cython<3.0.0" 
+          pip install setuptools
+
+      # 5. Buildozer Önbelleğini Temizle (Hataları önlemek için)
+      - name: Clean previous builds
+        run: |
+          rm -rf .buildozer
+          rm -rf bin
+
+      # 6. APK Derleme İşlemi (En uzun süren adım)
+      - name: Build with Buildozer
+        run: |
+          # SDK ve NDK lisanslarını otomatik kabul etmesi için 'yes' komutu ile çalıştırıyoruz
+          yes | buildozer android debug
+
+      # 7. APK Dosyasını Yükle (Artifacts)
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: CheatSimulator-APK
+          path: bin/*.apk
+          if-no-files-found: error
