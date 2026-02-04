@@ -36,7 +36,7 @@ Proje Kivy kütüphanesi ile UI desteği sunar.
 
 ```bash
 pip install kivy
-python main.py
+python menu.py
 ```
 
 ## 📱 Mobil Derleme (Android)

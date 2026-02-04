@@ -29,9 +29,8 @@ jobs:
       uses: ArtemSBulgakov/buildozer-action@v1
       with:
         buildozer_version: master
-        python_version: 3.11
       env:
-        # Increase memory for Java
+        USER: root
         _JAVA_OPTIONS: "-Xmx4g"
 
     - name: Upload APK
