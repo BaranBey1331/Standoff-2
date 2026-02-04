@@ -13,7 +13,7 @@ osx.kivy_version = 1.9.1
 fullscreen = 0
 
 # Android specific
-android.api = 35
+android.api = 34
 android.minapi = 21
 android.ndk = 25b
 android.archs = arm64-v8a
