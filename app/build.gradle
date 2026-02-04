@@ -12,8 +12,7 @@ android {
         targetSdk 34
         versionCode 1
         versionName "1.0"
-        
-        // C++ kütüphanesi için konfigürasyon
+
         externalNativeBuild {
             cmake {
                 cppFlags ""
@@ -21,16 +20,34 @@ android {
         }
     }
 
-    // CMake dosyasının yolunu göster
+    buildTypes {
+        debug {
+            // Debug modunda minify kapatıyoruz ki hata vermesin
+            minifyEnabled false
+        }
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    
     externalNativeBuild {
         cmake {
             path file('src/main/cpp/CMakeLists.txt')
             version '3.22.1'
         }
     }
+    
+    // Java 8 uyumluluğu (Önemli)
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
 }
 
 dependencies {
+    // Sadece en temel ve uyumlu kütüphaneler
     implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.10.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
 }
-
