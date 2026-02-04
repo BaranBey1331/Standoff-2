@@ -15,25 +15,22 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    # 2. Java JDK Kurulumu (Java 17 Android için standarttır)
+    # 2. Java JDK Kurulumu (Java 17)
     - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
-
-    # 3. Android SDK ve NDK Kurulumu
-    # GitHub'ın ubuntu imajında Android SDK zaten var, NDK'yı gradle halleder.
     
-    # 4. Gradle İzinlerini Ayarla
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
+    # --- DEĞİŞİKLİK BURADA ---
+    # Gradle Wrapper (gradlew) olmadığı için sunucudaki 'gradle'ı kullanıyoruz.
+    # chmod +x adımını sildik çünkü dosyaya ihtiyacımız yok.
 
-    # 5. Projeyi Derle (Debug APK)
+    # 3. Projeyi Derle (Global Gradle Komutu ile)
     - name: Build with Gradle
-      run: ./gradlew assembleDebug --stacktrace
+      run: gradle assembleDebug --stacktrace --no-daemon
 
-    # 6. APK'yı Artifact Olarak Yükle (İndirilebilir Yap)
+    # 4. APK'yı Artifact Olarak Yükle
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
