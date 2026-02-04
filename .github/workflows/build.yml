@@ -11,26 +11,26 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    # 1. Kodları Çek
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    # 2. Java JDK Kurulumu (Java 17)
     - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
-    
-    # --- DEĞİŞİKLİK BURADA ---
-    # Gradle Wrapper (gradlew) olmadığı için sunucudaki 'gradle'ı kullanıyoruz.
-    # chmod +x adımını sildik çünkü dosyaya ihtiyacımız yok.
 
-    # 3. Projeyi Derle (Global Gradle Komutu ile)
+    # --- SİHİRLİ DOKUNUŞ BURADA ---
+    # Github'ın kendi Gradle'ını değil, bizim istediğimiz sürümü (8.2) kuruyoruz.
+    # Bu sürüm, yukarıdaki AGP 8.1.1 ile kusursuz çalışır.
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v3
+      with:
+        gradle-version: '8.2'
+
     - name: Build with Gradle
       run: gradle assembleDebug --stacktrace --no-daemon
 
-    # 4. APK'yı Artifact Olarak Yükle
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
