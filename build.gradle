@@ -1,3 +1,4 @@
 plugins {
-    id 'com.android.application' version '8.1.1' apply false
+    // Gradle 8.6 ile tam uyumlu stabil AGP sürümü
+    id 'com.android.application' version '8.3.0' apply false
 }
