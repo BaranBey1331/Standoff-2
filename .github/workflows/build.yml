@@ -1,80 +1,41 @@
-name: Build Android APK
+name: Android CI Build
+
 on:
   push:
-    branches:
-      - main  # Ana dalınızın adı (master veya main)
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+    # 1. Kodları Çek
+    - name: Checkout Code
+      uses: actions/checkout@v4
 
-      # 1. Java Kurulumu (Android SDK Build-Tools için gerekli)
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
+    # 2. Java JDK Kurulumu (Java 17 Android için standarttır)
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
 
-      # 2. Python Kurulumu (3.10 stabil sürümdür)
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
+    # 3. Android SDK ve NDK Kurulumu
+    # GitHub'ın ubuntu imajında Android SDK zaten var, NDK'yı gradle halleder.
+    
+    # 4. Gradle İzinlerini Ayarla
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
 
-      # 3. Gerekli Sistem Kütüphanelerinin Kurulumu
-      # DÜZELTME: libtinfo5 kaldırıldı, automake eklendi.
-      - name: Install System Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            libffi-dev \
-            libssl-dev \
-            python3-dev \
-            git \
-            unzip \
-            zip \
-            openjdk-17-jdk \
-            autoconf \
-            automake \
-            libtool \
-            pkg-config \
-            zlib1g-dev \
-            libncurses5-dev \
-            libncursesw5-dev \
-            libtinfo6 \
-            cmake \
-            libltdl-dev
+    # 5. Projeyi Derle (Debug APK)
+    - name: Build with Gradle
+      run: ./gradlew assembleDebug --stacktrace
 
-      # 4. Buildozer ve Cython Kurulumu
-      # Cython 3.0.0 öncesi olmak ZORUNDA, yoksa Kivy build patlar.
-      - name: Install Buildozer and Dependencies
-        run: |
-          pip install --upgrade pip
-          pip install buildozer
-          pip install "cython<3.0.0"
-          pip install setuptools
-
-      # 5. Buildozer Önbelleğini Temizle (Temiz başlangıç için)
-      - name: Clean previous builds
-        run: |
-          rm -rf .buildozer
-          rm -rf bin
-
-      # 6. APK Derleme İşlemi
-      # 'yes' komutu SDK lisanslarını otomatik kabul eder.
-      - name: Build with Buildozer
-        run: |
-          yes | buildozer android debug
-
-      # 7. APK Dosyasını Yükle (Github Actions Artifacts)
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: CheatSimulator-APK
-          path: bin/*.apk
-          if-no-files-found: error
+    # 6. APK'yı Artifact Olarak Yükle (İndirilebilir Yap)
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: fps-sim-apk
+        path: app/build/outputs/apk/debug/app-debug.apk
